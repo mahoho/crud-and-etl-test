@@ -72,7 +72,8 @@ class RunCoreProcessingCommand extends Command {
             try {
                 $coreProcessor->process($rawModel);
                 $processStatus->rows_processed++;
-
+                $rawModel->processed = 1;
+                $rawModel->save();
             } catch (\Throwable $e) {
                 // ETL should not stop if one or several rows are problematic
                 $processStatus->rows_failed++;

@@ -97,7 +97,7 @@ class ImportRawFileCommand extends Command {
 
         if($processCore) {
             Artisan::call(RunCoreProcessingCommand::class, [
-                '--execution-uid' => $executionUid,
+                'execution-uid' => $executionUid,
             ]);
         }
     }

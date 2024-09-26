@@ -108,17 +108,17 @@ abstract class RawModel extends Model {
 
         try {
             Schema::connection($this->connection)->table($this->table, function (Blueprint $table) use ($field) {
-                $table->string($field, 4000)->nullable();
+                $table->longText($field)->nullable();
             });
         } catch (QueryException $e) {
             if (Str::contains($e->getMessage(), 'Column names in each table must be unique')) {
                 // could be because of racing condition by running multiple processes
-                static::$columnsList[] = $field;
+                static::$columnsList[$this->table][] = $field;
             } else {
                 throw $e;
             }
         }
 
-        static::$columnsList[] = $field;
+        static::$columnsList[$this->table][] = $field;
     }
 }

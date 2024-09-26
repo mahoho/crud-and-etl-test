@@ -2,16 +2,16 @@
 
 namespace App\Console\Commands;
 
-use App\ETLProcessing\Core\RawToCoreProcessor;
 use App\ETLProcessing\DataSourceFactory;
 use App\ETLProcessing\Raw\FileReaderFactory;
 use App\Models\ETL\RawExecutionProcess;
 use App\Models\ETL\RawModel;
+use Artisan;
 use Illuminate\Console\Command;
 use Ramsey\Uuid\Uuid;
 
 class ImportRawFileCommand extends Command {
-    protected $signature = 'etl:import-raw-file {file} {--source-name=hotels} {--execution-uid=}';
+    protected $signature = 'etl:import-raw-file {file} {--source-name=hotels} {--execution-uid=} {--process-core=true}';
 
     protected $description = 'Import file into raw database';
 
@@ -65,8 +65,6 @@ class ImportRawFileCommand extends Command {
             'processed',
         ];
 
-        $rawModels = [];
-
         foreach ($rows as $index => $data) {
             $indexPlusOne = $index + 1;
 
@@ -91,46 +89,16 @@ class ImportRawFileCommand extends Command {
             $now = date('Y-m-d H:i:s');
             $this->line("[$now] Processed Raw: $indexPlusOne/$totalLines");
 
-            $rawModels[] = $model;
-
             $processStatus->rows_processed++;
             $processStatus->save();
         }
 
-        $coreProcessorClass = DataSourceFactory::getCoreProcessor($sourceName);
+        $processCore = filter_var($this->option('process-core'), FILTER_VALIDATE_BOOLEAN);
 
-        if(!$coreProcessorClass) {
-            $this->error("Core processor class not specified for source: '$sourceName'.");
-            return;
-        }
-
-        /** @var RawToCoreProcessor $coreProcessor */
-        $coreProcessor = new $coreProcessorClass;
-
-        $processStatus->rows_failed = 0;
-        $processStatus->rows_processed = 0;
-        $processStatus->save();
-
-        foreach ($rawModels as $index => $rawModel) {
-            $indexPlusOne = $index + 1;
-
-            $errors = [];
-
-            try {
-                $coreProcessor->process($rawModel);
-                $processStatus->rows_processed++;
-
-            } catch (\Throwable $e) {
-                // ETL should not stop if one or several rows are problematic
-                $processStatus->rows_failed++;
-                $errors[] = "[Row $indexPlusOne]: " . $e->getMessage() . ' on ' . $e->getFile() . ' on line ' . $e->getLine();
-            }
-
-            $now = date('Y-m-d H:i:s');
-            $this->line("[$now] Processed Core: $indexPlusOne/$totalLines");
-
-            $processStatus->errors = $errors;
-            $processStatus->save();
+        if($processCore) {
+            Artisan::call(RunCoreProcessingCommand::class, [
+                '--execution-uid' => $executionUid,
+            ]);
         }
     }
 

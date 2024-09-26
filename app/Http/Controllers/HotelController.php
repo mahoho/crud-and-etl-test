@@ -3,31 +3,34 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\HotelRequest;
-use App\Http\Resources\HotelResource;
+use App\Http\Resources\HotelsResource;
 use App\Models\Hotel;
 
 class HotelController extends Controller {
-    public function index() {
-        return HotelResource::collection(Hotel::all());
+    public function list() {
+        $hotels = Hotel::with('city')->get();
+
+        return HotelsResource::collection($hotels);
     }
 
-    public function store(HotelRequest $request) {
-        return new HotelResource(Hotel::create($request->validated()));
+    public function show($id) {
+        return Hotel::with('city')->findOrFail($id);
     }
 
-    public function show(Hotel $hotel) {
-        return new HotelResource($hotel);
+    public function save(HotelRequest $request) {
+        $id = $request->input('id');
+        $hotel = Hotel::findOrNew($id);
+        $hotel->fill($request->validated());
+        $hotel->save();
+
+        $hotel->load('city');
+
+        return $hotel;
     }
 
-    public function update(HotelRequest $request, Hotel $hotel) {
-        $hotel->update($request->validated());
+    public function delete($id) {
+        Hotel::where(['id' => $id])->delete();
 
-        return new HotelResource($hotel);
-    }
-
-    public function destroy(Hotel $hotel) {
-        $hotel->delete();
-
-        return response()->json();
+        return ['success' => true];
     }
 }

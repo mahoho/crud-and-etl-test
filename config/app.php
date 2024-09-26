@@ -123,4 +123,8 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+
+    'bin' => [
+        'php' => env('PHP', '/usr/local/bin/php'),
+    ]
 ];

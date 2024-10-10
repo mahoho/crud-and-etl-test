@@ -7,7 +7,6 @@ use Illuminate\Foundation\Http\FormRequest;
 class HotelRequest extends FormRequest {
     public function rules(): array {
         return [
-            'id'          => ['nullable', 'exists:hotels,id'],
             'name'        => ['required'],
             'city_id'     => ['required', 'exists:cities,id'],
             'address'     => ['required'],

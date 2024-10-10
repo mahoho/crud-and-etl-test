@@ -5,20 +5,21 @@ namespace Tests\Feature;
 use App\Models\City;
 use App\Models\Hotel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
-use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class HotelControllerTest extends TestCase {
     use RefreshDatabase;
-    use WithFaker;
 
-    #[Test]
-    public function it_can_list_hotels() {
+    /**
+     * Test the index route returns a list of hotels.
+     *
+     * @return void
+     */
+    public function testIndexReturnsListOfHotels(): void {
         $city = City::factory()->create();
-        $hotels = Hotel::factory()->count(5)->create(['city_id' => $city->id]);
+        Hotel::factory()->count(3)->create(['city_id' => $city->id]);
 
-        $response = $this->getJson('/api/hotels/list');
+        $response = $this->getJson('/api/hotels');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -37,97 +38,184 @@ class HotelControllerTest extends TestCase {
             ]);
     }
 
-    #[Test]
-    public function it_can_show_a_single_hotel() {
+    /**
+     * Test the store route creates a hotel and returns it.
+     *
+     * @return void
+     */
+    public function testStoreCreatesHotel(): void {
+        /** @var City $city */
         $city = City::factory()->create();
+
+        $data = [
+            'name'        => 'Hotel Test',
+            'city_id'     => $city->id,
+            'address'     => '123 Test Street',
+            'stars'       => 5,
+            'description' => 'A wonderful place',
+        ];
+
+        $response = $this->postJson('/api/hotels', $data);
+
+        $response->assertStatus(201)
+            ->assertJsonStructure([
+                'message',
+                'hotel' => [
+                    'id',
+                    'name',
+                    'city_id',
+                    'address',
+                    'stars',
+                    'description',
+                    'created_at',
+                    'updated_at'
+                ]
+            ])
+            ->assertJson([
+                'message' => 'Hotel created successfully',
+                'hotel'   => $data,
+            ]);
+
+        $this->assertDatabaseHas('hotels', $data);
+    }
+
+    /**
+     * Test the show route returns a specific hotel.
+     *
+     * @return void
+     */
+    public function testShowReturnsHotel(): void {
+        /** @var City $city */
+        $city = City::factory()->create();
+        /** @var Hotel $hotel */
         $hotel = Hotel::factory()->create(['city_id' => $city->id]);
 
-        $response = $this->getJson("/api/hotels/show/{$hotel->id}");
+        $response = $this->getJson("/api/hotels/$hotel->id");
 
         $response->assertStatus(200)
+            ->assertJsonStructure([
+                'id',
+                'name',
+                'city_id',
+                'address',
+                'stars',
+                'description',
+                'created_at',
+                'updated_at',
+                'city' => ['id', 'name']
+            ])
             ->assertJson([
                 'id'          => $hotel->id,
                 'name'        => $hotel->name,
-                'description' => $hotel->description,
-                'image'       => $hotel->image,
+                'city_id'     => $city->id,
+                'address'     => $hotel->address,
                 'stars'       => $hotel->stars,
-                'city'        => [
-                    'id'   => $city->id,
-                    'name' => $city->name,
-                ]
+                'description' => $hotel->description
             ]);
     }
 
-    #[Test]
-    public function it_can_create_and_update_a_hotel() {
+    /**
+     * Test the update route updates a hotel.
+     *
+     * @return void
+     */
+    public function testUpdateModifiesHotel(): void {
+        /** @var City $city */
         $city = City::factory()->create();
+        /** @var Hotel $hotel */
+        $hotel = Hotel::factory()->create(['city_id' => $city->id]);
 
-        $hotelData = [
-            'address'     => $this->faker->address,
-            'description' => $this->faker->realText(),
-            'name'        => $this->faker->company,
-            'stars'       => $this->faker->numberBetween(1, 5),
-            'image'       => $this->faker->imageUrl(),
+        $updateData = [
+            'name'        => 'Updated Hotel',
             'city_id'     => $city->id,
+            'address'     => '456 Updated Street',
+            'stars'       => 4,
+            'description' => 'An updated description',
         ];
 
-        $response = $this->postJson('/api/hotels/save', $hotelData);
-
-        $statusCode = $response->getStatusCode();
-
-        $this->assertContains($statusCode, [200, 201]);
-
-        $response->assertJson([
-            'name'        => $hotelData['name'],
-            'stars'       => $hotelData['stars'],
-            'address'     => $hotelData['address'],
-            'description' => $hotelData['description'],
-            'city'        => [
-                'id'   => $city->id,
-                'name' => $city->name,
-            ]
-        ]);
-
-        $this->assertDatabaseHas('hotels', ['name' => $hotelData['name']]);
-
-        $updatedData = [
-            'id'      => $response->json('id'),
-            'name'    => 'Updated Hotel Name',
-            'address' => 'Updated Address',
-            'stars'   => $this->faker->numberBetween(1, 5),
-            'city_id' => $city->id,
-        ];
-
-        $updateResponse = $this->postJson('/api/hotels/save', $updatedData);
-
-        $updateResponse->assertStatus(200)
-            ->assertJson([
-                'name'    => 'Updated Hotel Name',
-                'address' => 'Updated Address',
-                'stars'   => $updatedData['stars'],
-                'city'    => [
-                    'id'   => $city->id,
-                    'name' => $city->name,
-                ]
-            ]);
-
-        $this->assertDatabaseHas('hotels', [
-            'name'    => 'Updated Hotel Name',
-            'address' => 'Updated Address',
-            'stars'   => $updatedData['stars'],
-            'city_id' => $city->id
-        ]);
-    }
-
-    #[Test]
-    public function it_can_delete_a_hotel() {
-        $hotel = Hotel::factory()->create();
-
-        $response = $this->postJson("/api/hotels/delete/{$hotel->id}");
+        $response = $this->putJson("/api/hotels/$hotel->id", $updateData);
 
         $response->assertStatus(200)
-            ->assertJson(['success' => true]);
+            ->assertJsonStructure([
+                'message',
+                'hotel' => [
+                    'id',
+                    'name',
+                    'city_id',
+                    'address',
+                    'stars',
+                    'description',
+                    'created_at',
+                    'updated_at'
+                ]
+            ])
+            ->assertJson([
+                'message' => 'Hotel updated successfully',
+                'hotel'   => $updateData,
+            ]);
+
+        $this->assertDatabaseHas('hotels', $updateData);
+    }
+
+    /**
+     * Test the destroy route soft deletes a hotel.
+     *
+     * @return void
+     */
+    public function testDestroyDeletesHotel(): void {
+        /** @var City $city */
+        $city = City::factory()->create();
+        /** @var Hotel $hotel */
+        $hotel = Hotel::factory()->create(['city_id' => $city->id]);
+
+        $response = $this->deleteJson("/api/hotels/$hotel->id");
+
+        $response->assertStatus(204);
 
         $this->assertSoftDeleted('hotels', ['id' => $hotel->id]);
+    }
+
+    /**
+     * Test the restore route restores a soft-deleted hotel.
+     *
+     * @return void
+     */
+    public function testRestoreRestoresHotel(): void {
+        /** @var City $city */
+        $city = City::factory()->create();
+        /** @var Hotel $hotel */
+        $hotel = Hotel::factory()->create(['city_id' => $city->id]);
+
+        $hotel->delete();
+
+        $response = $this->postJson("/api/hotels/$hotel->id/restore");
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'message',
+                'hotel' => [
+                    'id',
+                    'name',
+                    'city_id',
+                    'address',
+                    'stars',
+                    'description',
+                    'created_at',
+                    'updated_at'
+                ]
+            ])
+            ->assertJson([
+                'message' => 'Hotel restored successfully',
+                'hotel'   => [
+                    'id'          => $hotel->id,
+                    'name'        => $hotel->name,
+                    'city_id'     => $hotel->city_id,
+                    'address'     => $hotel->address,
+                    'stars'       => $hotel->stars,
+                    'description' => $hotel->description,
+                ]
+            ]);
+
+        $this->assertDatabaseHas('hotels', ['id' => $hotel->id]);
     }
 }
